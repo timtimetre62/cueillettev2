@@ -1,0 +1,23 @@
+{
+ "name": "Cueillette Côte d'Opale (complète)",
+ "short_name": "Cueillette+",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#2f4a2c",
+ "theme_color": "#2f4a2c",
+ "lang": "fr",
+ "icons": [
+  {
+   "src": "icone2-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icone2-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any maskable"
+  }
+ ]
+}
