@@ -862,6 +862,8 @@ img.legend{max-width:100%;border:1px solid var(--line);border-radius:6px}
 .tile.big{grid-column:span 3;flex-direction:row;gap:12px;background:var(--moss);color:#fff;min-height:64px;font-size:1.05rem}
 .tile.danger{color:#b03a2e}
 .hm-last{display:flex;flex-direction:column;gap:6px}
+#movebar{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);z-index:1500;background:#fff;border:2px solid #ff9500;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.3);padding:10px 12px;font-size:.92rem}
+#movebar[hidden]{display:none}#movebar .row{margin-top:8px}
 .rec-ic{position:relative}.rec-ic::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid #ff3b30;animation:recp 1.6s ease-out infinite}
 @keyframes recp{0%{transform:scale(.7);opacity:1}100%{transform:scale(1.5);opacity:0}}
 .pop img.rec{width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin:4px 0}
@@ -912,6 +914,7 @@ body.gants .lp-bot .row button{min-height:66px}
 </header>
 <div id="map"><div class="nav" id="nav" hidden><div class="arrow"><svg viewBox="0 0 40 40" id="nav-arrow"><path d="M20 3 L32 34 L20 27 L8 34 Z" fill="#1a73e8"/></svg></div><div class="ni"><b id="nav-d">–</b><span id="nav-n"></span><span id="nav-h"></span></div><div class="nb"><button id="nav-compass">Boussole</button><button id="nav-off">Arrêter</button></div></div></div>
 <div class="bar">
+  <div id="movebar" hidden></div>
   <div id="status">Chargement des zones…</div>
   <div class="btns">
     <button id="b-home"><span class="ic">🏠</span>Accueil</button>
@@ -989,7 +992,7 @@ body.gants .lp-bot .row button{min-height:66px}
 
 <div class="sheet" id="s-add" hidden>
   <h2 id="add-title">Noter un coin</h2>
-  <p class="note" id="add-pos"></p><button id="add-move" class="back" hidden style="margin:-4px 0 6px">📍 Replacer à ma position GPS actuelle</button>
+  <p class="note" id="add-pos"></p><button id="add-move" class="back" hidden style="margin:-4px 0 6px">📍 Replacer à ma position GPS actuelle</button><button id="add-drag" class="back" hidden style="margin:-4px 0 6px">✋ Déplacer sur la carte</button>
   <label>Espèce<select id="add-sp"><option value="cepe">Cèpe</option><option value="girolle">Girolle</option><option value="trompette">Trompette des morts</option><option value="tube">Chanterelle en tube</option><option value="pied">Pied de mouton</option><option value="morille">Morille</option><option value="autre">Autre / à revoir</option><option value="mesure">Mesure de pH seule</option></select></label>
   <div class="row2">
     <label>pH du sol<input type="text" id="add-ph" inputmode="decimal" autocomplete="off" placeholder="ex. 5,5"></label>
@@ -1605,11 +1608,26 @@ const phCol=v=>v==null||v===""?null:v<4.5?"#c0392b":v<5.5?"#e67e22":v<6.5?"#c9a2
 const mine=L.layerGroup().addTo(map);
 const QTY=["Rien trouvé","1 ou 2","Une poignée","Un panier"];
 const qtxt=f=>f.q!=null&&f.q!==""?QTY[f.q]:"";
-function popMine(f,i){return `<div class="pop"><h3>${f.sp==="mesure"?"Mesure de pH":SPN[f.sp]+" (mon coin)"}</h3><p>${new Date(f.t).toLocaleDateString("fr-FR")}${qtxt(f)?` · ${qtxt(f)}`:""}${f.ph!=null&&f.ph!==""?` · <span class="phb" style="background:${phCol(f.ph)}">pH ${f.ph}</span>`:""}${f.arbre?` · ${esc(f.arbre)}`:""}</p><p>${esc(f.note)}</p><div class="ph" data-ph="${(f.photos||[]).join(",")}"></div><div class="links"><a href="${gmaps(f.lat,f.lon)}" target="_blank" rel="noopener">Itinéraire</a>${aimLink(f.lat,f.lon,"Mon coin")}</div><button class="pedit" data-edit="${i}">✏️ Modifier</button> <button class="pedit" data-share="${i}">💬 Envoyer à Claude</button></div>`}
-function drawMine(){mine.clearLayers();LS.get("cu-finds",[]).forEach((f,i)=>{const hasPh=f.ph!=null&&f.ph!=="";
-  L.marker([f.lat,f.lon],{icon:pin(f.sp==="mesure"?phCol(f.ph):COL[f.sp]||"#777",hasPh?24:18,hasPh?String(f.ph).replace(".",","):"★","50%")}).addTo(mine).bindPopup(popMine(f,i))})}
+function popMine(f,i){return `<div class="pop"><h3>${f.sp==="mesure"?"Mesure de pH":SPN[f.sp]+" (mon coin)"}</h3><p>${new Date(f.t).toLocaleDateString("fr-FR")}${qtxt(f)?` · ${qtxt(f)}`:""}${f.ph!=null&&f.ph!==""?` · <span class="phb" style="background:${phCol(f.ph)}">pH ${f.ph}</span>`:""}${f.arbre?` · ${esc(f.arbre)}`:""}</p><p>${esc(f.note)}</p><div class="ph" data-ph="${(f.photos||[]).join(",")}"></div><div class="links"><a href="${gmaps(f.lat,f.lon)}" target="_blank" rel="noopener">Itinéraire</a>${aimLink(f.lat,f.lon,"Mon coin")}</div><button class="pedit" data-edit="${i}">✏️ Modifier</button> <button class="pedit" data-share="${i}">💬 Envoyer à Claude</button><br><button class="pedit" data-move="${i}">✋ Déplacer</button> <button class="pedit" data-delc="${i}" style="color:#b03a2e">🗑️ Supprimer</button></div>`}
+const mineMk=[];
+function drawMine(){mine.clearLayers();mineMk.length=0;LS.get("cu-finds",[]).forEach((f,i)=>{const hasPh=f.ph!=null&&f.ph!=="";
+  mineMk[i]=L.marker([f.lat,f.lon],{icon:pin(f.sp==="mesure"?phCol(f.ph):COL[f.sp]||"#777",hasPh?24:18,hasPh?String(f.ph).replace(".",","):"★","50%")}).addTo(mine).bindPopup(popMine(f,i))})}
 async function fillPhotos(root){for(const d of root.querySelectorAll("[data-ph]")){const ids=d.dataset.ph?d.dataset.ph.split(","):[];d.innerHTML="";for(const id of ids){const u=await photoURL(id);if(!u)continue;const im=document.createElement("img");im.src=u;im.onclick=()=>{$("viewer-img").src=u;$("viewer").hidden=false};d.appendChild(im)}}}
-map.on("popupopen",e=>{const el=e.popup.getElement();fillPhotos(el);el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{map.closePopup();openEdit(+b.dataset.edit)});el.querySelectorAll("[data-share]").forEach(b=>b.onclick=()=>{map.closePopup();openShare(+b.dataset.share)})});
+map.on("popupopen",e=>{const el=e.popup.getElement();fillPhotos(el);el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{map.closePopup();openEdit(+b.dataset.edit)});el.querySelectorAll("[data-share]").forEach(b=>b.onclick=()=>{map.closePopup();openShare(+b.dataset.share)});
+  el.querySelectorAll("[data-move]").forEach(b=>b.onclick=()=>{map.closePopup();startMove(+b.dataset.move)});
+  el.querySelectorAll("[data-delc]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Toucher encore pour confirmer";return}
+    const l=LS.get("cu-finds",[]);const [f]=l.splice(+b.dataset.delc,1);LS.set("cu-finds",l);for(const id of (f&&f.photos||[]))try{await delPhoto(id)}catch(e){}
+    map.closePopup();drawMine();status("Coin supprimé.");if(!$("home").hidden)renderHome()})});
+// Déplacer un coin en le faisant glisser sur la carte
+let moveIdx=null,moveLL=null;
+function startMove(i){const m=mineMk[i];if(!m)return;moveIdx=i;moveLL=m.getLatLng();follow=false;
+  m.setIcon(pin("#ff9500",34,"✋","50%"));m.dragging.enable();m.setZIndexOffset(2000);m.on("dragend",()=>{moveLL=m.getLatLng()});
+  map.setView(moveLL,Math.max(map.getZoom(),17));
+  $("movebar").innerHTML=`<b>✋ Faites glisser le coin orange</b> au bon endroit, ou touchez la carte là où il doit aller.<div class="row"><button id="mv-no">Annuler</button>${me?`<button id="mv-gps">📍 Ma position</button>`:""}<button id="mv-ok" class="ok">✓ Valider</button></div>`;$("movebar").hidden=false;
+  $("mv-ok").onclick=endMove.bind(null,true);$("mv-no").onclick=endMove.bind(null,false);if($("mv-gps"))$("mv-gps").onclick=()=>{moveLL=L.latLng(me.lat,me.lon);m.setLatLng(moveLL)}}
+map.on("click",e=>{if(moveIdx!=null&&mineMk[moveIdx]){moveLL=e.latlng;mineMk[moveIdx].setLatLng(moveLL)}});
+function endMove(ok){if(moveIdx==null)return;if(ok&&moveLL){const l=LS.get("cu-finds",[]);const f=l[moveIdx];if(f){f.lat=+moveLL.lat.toFixed(6);f.lon=+moveLL.lng.toFixed(6);delete f.wx;LS.set("cu-finds",l)}}
+  moveIdx=null;$("movebar").hidden=true;drawMine();status(ok?"Coin déplacé.":"Déplacement annulé.");if(ok)fillCoinWx()}
 $("viewer").onclick=()=>$("viewer").hidden=true;
 let pending=null,draft=[];
 function drawDraft(){$("add-photos").innerHTML="";draft.forEach((p,i)=>{const d=document.createElement("div");d.innerHTML=`<img src="${p.url}" alt=""><button aria-label="Retirer">✕</button>`;d.querySelector("button").onclick=()=>{draft.splice(i,1);drawDraft()};$("add-photos").appendChild(d)})}
@@ -1618,7 +1636,7 @@ $("add-cam").onchange=e=>{addFiles([...e.target.files]);e.target.value=""};$("ad
 let editIdx=null,qSel=null,relMode=false;
 function setQ(q){qSel=q;$("add-qty").querySelectorAll("button").forEach(b=>b.classList.toggle("on",String(q)===b.dataset.q))}
 $("add-qty").querySelectorAll("button").forEach(b=>b.onclick=()=>setQ(String(qSel)===b.dataset.q?null:+b.dataset.q));
-function resetAdd(){setTimeout(updSos,0);editIdx=null;relMode=false;$("add-title").textContent="Noter un coin";$("add-ok").textContent="Enregistrer";$("add-move").hidden=true;$("add-sp").value=SP;$("add-note").value="";$("add-ph").value="";$("add-arbre").value="";setQ(null);draft=[];drawDraft();$("s-add").hidden=false}
+function resetAdd(){setTimeout(updSos,0);$("add-drag").hidden=true;editIdx=null;relMode=false;$("add-title").textContent="Noter un coin";$("add-ok").textContent="Enregistrer";$("add-move").hidden=true;$("add-sp").value=SP;$("add-note").value="";$("add-ph").value="";$("add-arbre").value="";setQ(null);draft=[];drawDraft();$("s-add").hidden=false}
 function openAdd(pos,txt){pending=pos;$("add-pos").textContent=txt;resetAdd()}
 function addHere(){if(me){pending={lat:me.lat,lon:me.lon};$("add-pos").textContent=`À votre position GPS (± ${me.acc} m).`}else{const c=map.getCenter();pending={lat:c.lat,lon:c.lng};$("add-pos").textContent="GPS inactif : le coin sera placé au centre de la carte. Astuce : appui long sur la carte pour choisir l'endroit."}
   resetAdd()}
@@ -1626,9 +1644,10 @@ $("b-add").onclick=()=>document.body.classList.contains("gants")?openQuick():add
 async function openEdit(i){const f=LS.get("cu-finds",[])[i];if(!f)return;$("s-list").hidden=true;
   editIdx=i;pending={lat:f.lat,lon:f.lon};$("add-title").textContent="Modifier le coin";$("add-ok").textContent="Enregistrer les modifications";
   $("add-pos").textContent=`Noté le ${new Date(f.t).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} à ${new Date(f.t).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}.`;
-  $("add-move").hidden=!me;$("add-sp").value=f.sp;setTimeout(updSos,0);$("add-note").value=f.note||"";$("add-ph").value=f.ph!=null&&f.ph!==""?String(f.ph).replace(".",","):"";$("add-arbre").value=f.arbre||"";setQ(f.q!=null&&f.q!==""?f.q:null);
+  $("add-move").hidden=!me;$("add-drag").hidden=false;$("add-sp").value=f.sp;setTimeout(updSos,0);$("add-note").value=f.note||"";$("add-ph").value=f.ph!=null&&f.ph!==""?String(f.ph).replace(".",","):"";$("add-arbre").value=f.arbre||"";setQ(f.q!=null&&f.q!==""?f.q:null);
   draft=[];for(const id of (f.photos||[])){const u=await photoURL(id);if(u)draft.push({id,url:u})}drawDraft();$("s-add").hidden=false}
 $("add-move").onclick=()=>{if(!me)return;pending={lat:me.lat,lon:me.lon};$("add-pos").textContent=`Sera replacé à votre position GPS actuelle (± ${me.acc} m).`;$("add-move").hidden=true};
+$("add-drag").onclick=()=>{const i=editIdx;draft=[];editIdx=null;$("s-add").hidden=true;startMove(i)};
 $("add-cancel").onclick=()=>{draft=[];editIdx=null;relMode=false;$("s-add").hidden=true};
 $("add-ok").onclick=async()=>{const ids=[];try{for(const p of draft){if(p.id){ids.push(p.id);continue}const id="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);await putPhoto(id,p.blob);ids.push(id)}}catch(e){status("Photos non enregistrées (stockage indisponible).")}
   let ph=$("add-ph").value.replace(",",".");ph=ph===""?null:Math.round(parseFloat(ph)*10)/10;if(ph!=null&&(isNaN(ph)||ph<2||ph>10))ph=null;
