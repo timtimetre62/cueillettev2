@@ -1085,6 +1085,9 @@ body.gants .lp-bot .row button{min-height:66px}
   <h2>Ce que vos sorties vous apprennent</h2>
   <div class="learn" id="learn"></div>
   <p class="note">Calculé uniquement à partir de vos coins enregistrés sur ce téléphone, avec la météo des jours précédant chaque trouvaille. Plus vous notez de sorties, y compris quand vous ne trouvez rien, plus c'est fiable.</p>
+  <div class="hcard" style="box-shadow:none;border:1px solid var(--line)"><h3 style="margin:0 0 4px">🔬 Vérifier le thermomètre sur 10 ans</h3>
+  <p class="note" style="margin:0 0 6px">Télécharge la météo réelle depuis 2015 et toutes les cueillettes datées publiées dans la région (GBIF : SMNF, iNaturalist…), puis mesure si l'ancien ou le nouveau calcul les prévoyait le mieux. L'appli garde ensuite, pour chaque espèce, le calcul gagnant. Il faut du réseau, environ 1 minute.</p>
+  <div class="row"><button id="bt-go">Lancer la vérification</button></div><div id="bt-out" class="learn"></div></div>
   <div class="row"><button id="learn-close" class="ok">Fermer</button></div>
 </div>
 <div class="sheet" id="s-list" hidden>
@@ -1707,9 +1710,24 @@ function factsAt(d,W){W=W||WX;const p=W.daily.precipitation_sum,tx=W.daily.tempe
   let t=0,n=0;for(let k=Math.max(0,d-7);k<d;k++){t+=(tx[k]+tn[k])/2;n++}
   let frost=false;for(let k=Math.max(0,d-5);k<d;k++)if(tn[k]<=0)frost=true;
   return {rain15,since,last,t7:n?t/n:0,frost}}
-function indexAt(sp,d){const m=MET[sp],f=factsAt(d),mo=+WX.daily.time[d].slice(5,7)-1;
+// Modèle 1 (d'origine) : pluie des 15 derniers jours, délai depuis la dernière bonne pluie, température moyenne 7 jours
+function scoreV1(sp,d,W){const m=MET[sp],f=factsAt(d,W),mo=+W.daily.time[d].slice(5,7)-1;
   let v=Math.pow(clamp((f.rain15-m.rain[0])/(m.rain[1]-m.rain[0])),.6)*Math.pow(tempF(f.t7,m.temp),.6)*Math.pow(winF(f.since,m.win),.4);if(f.frost)v*=m.frost;
   return {v:Math.round(100*v*m.s[mo]),f,season:m.s[mo]}}
+// Modèle 2 : bilan hydrique du sol (pluie − évapotranspiration), température sur 5 jours (développement des carpophores),
+// nuits froides, et « mémoire » de la sécheresse sur 60 jours (mycélium affaibli après un été sec).
+function soilOf(W){if(W._S)return W._S;const p=W.daily.precipitation_sum,e=W.daily.et0_fao_evapotranspiration;const S=[];let s=30;
+  for(let k=0;k<p.length;k++){s=clamp(s+(p[k]||0)-.8*(e[k]||0),0,60);S.push(s)}return Object.defineProperty(W,"_S",{value:S,enumerable:false})._S}
+function scoreV2(sp,d,W){const m=MET[sp],f=factsAt(d,W),mo=+W.daily.time[d].slice(5,7)-1,S=soilOf(W),p=W.daily.precipitation_sum,e=W.daily.et0_fao_evapotranspiration,tx=W.daily.temperature_2m_max,tn=W.daily.temperature_2m_min;
+  let ms=0,n=0;for(let k=Math.max(0,d-7);k<d;k++){ms+=S[k]/60;n++}ms=n?ms/n:0;
+  const moist=clamp((ms-.15)/.4),rainF=clamp((f.rain15-m.rain[0])/(m.rain[1]-m.rain[0])),water=.6*moist+.4*rainF;
+  let t5=0,tn5=0,c=0;for(let k=Math.max(0,d-5);k<d;k++){t5+=(tx[k]+tn[k])/2;tn5+=tn[k];c++}t5=c?t5/c:0;tn5=c?tn5/c:0;
+  let def=0;for(let k=Math.max(0,d-60);k<d;k++)def+=(p[k]||0)-(e[k]||0);const legacy=def<-150?clamp(1+(def+150)/200,.5,1):1;
+  let v=Math.pow(water,.7)*Math.pow(tempF(t5,m.temp),.6)*Math.pow(winF(f.since,m.win),.4)*legacy;if(f.frost)v*=m.frost;else if(tn5<2)v*=.7;
+  return {v:Math.round(100*v*m.s[mo]),f:{...f,soil:Math.round(ms*100),t5,legacy},season:m.s[mo]}}
+const hasEt=W=>W&&W.daily&&Array.isArray(W.daily.et0_fao_evapotranspiration)&&W.daily.et0_fao_evapotranspiration.some(x=>x!=null);
+const modelFor=sp=>{const c=LS.get("cu-model",{});return c[sp]||c._all||2};
+function indexAt(sp,d){return modelFor(sp)===2&&hasEt(WX)?scoreV2(sp,d,WX):scoreV1(sp,d,WX)}
 const lvlCol=v=>v>=70?"#1f7a2e":v>=45?"#7fb24a":v>=25?"#e0b23a":"#b9c2b4";
 const DOW=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
 const dayName=s=>{const d=new Date(s+"T12:00");return DOW[d.getDay()]+" "+d.getDate()};
@@ -1736,16 +1754,16 @@ function openMeteo(){if(!WX){status("Météo pas encore chargée : il faut du r�
   if(f.frost)w.push("Gelée récente : la pousse ralentit.");
   $("m-why").textContent=w.join(" ");
   $("m-facts").innerHTML=`<span>Pluie 15 derniers jours</span><span><b>${Math.round(f.rain15)} mm</b></span><span>Dernière bonne pluie</span><span><b>${f.last!=null?dayName(T[f.last])+` (${WX.daily.precipitation_sum[f.last]} mm), il y a ${f.since} j`:"aucune depuis 3 semaines"}</b></span><span>Température moyenne 7 j</span><span><b>${f.t7.toFixed(1)} °C</b></span><span>Bonne fenêtre après la pluie</span><span><b>${m.win[0]} à ${m.win[1]} jours, ${m.temp[1]} à ${m.temp[2]} °C</b></span>`;
-  const mx=Math.max(10,...WX.daily.precipitation_sum);$("m-rain").innerHTML=WX.daily.precipitation_sum.map((v,k)=>`<i class="${k>i?"fut":""}" title="${T[k]} : ${v} mm" style="height:${Math.max(2,v/mx*100)}%"></i>`).join("");
+  const mx=Math.max(10,...WX.daily.precipitation_sum.slice(Math.max(0,i-21)));const r0=Math.max(0,i-21);$("m-rain").innerHTML=WX.daily.precipitation_sum.map((v,k)=>k<r0?"":`<i class="${k>i?"fut":""}" title="${T[k]} : ${v} mm" style="height:${Math.max(2,v/mx*100)}%"></i>`).join("");
   $("m-src").textContent=`Météo Open-Meteo pour ${WX.where}, mise à jour ${new Date(WX.t).toLocaleString("fr-FR",{weekday:"short",hour:"2-digit",minute:"2-digit"})}. Barres claires = prévisions. Indice calculé par l'appli, à prendre comme une tendance.`;
   $("s-meteo").hidden=false}
 $("m-close").onclick=()=>$("s-meteo").hidden=true;
 async function loadWx(force){
   const c=me?{lat:me.lat,lon:me.lon,where:"votre position"}:{lat:map.getCenter().lat,lon:map.getCenter().lng,where:"le centre de la carte"};
   const lat=+c.lat.toFixed(2),lon=+c.lon.toFixed(2);
-  if(!force&&WX&&Date.now()-WX.t<3*36e5&&Math.abs(WX.lat-lat)<.1&&Math.abs(WX.lon-lon)<.1){drawThermo();return}
+  if(!force&&WX&&WX.daily.et0_fao_evapotranspiration&&Date.now()-WX.t<3*36e5&&Math.abs(WX.lat-lat)<.1&&Math.abs(WX.lon-lon)<.1){drawThermo();return}
   if(wxBusy)return;wxBusy=true;
-  try{const j=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_sum,temperature_2m_max,temperature_2m_min&past_days=21&forecast_days=8&timezone=Europe%2FParis`).then(r=>{if(!r.ok)throw 0;return r.json()});
+  try{const j=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration&past_days=60&forecast_days=8&timezone=Europe%2FParis`).then(r=>{if(!r.ok)throw 0;return r.json()});
     WX={t:Date.now(),lat,lon,where:c.where,daily:j.daily};LS.set("cu-wx",WX)}catch(e){}
   wxBusy=false;if(WX)drawThermo();else{$("t-lab").textContent="sans réseau"}}
 
@@ -2217,12 +2235,40 @@ function renderGo(){const sel=$("go-sp");if(!sel.options.length){sel.innerHTML=[
   $("go-list").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const c=R[+b.dataset.go];closeHome();setSp(sp);follow=false;map.setView([c.lat,c.lon],14);status(`${esc(c.full||c.nom)} : ${c.why.map(w=>esc(w[1])).join(" · ")}`)})}
 $("go-sp").onchange=e=>{e.target.dataset.touched=1;renderGo()};
 // ---- Bandeau « nouvelle version »
-const APPV="cueillette-complet-v23";
+const APPV="cueillette-complet-v24";
 async function checkUpd(){if(!APPV||APPV.startsWith("__")||location.protocol==="file:"||!navigator.onLine)return;
   try{const t=await fetch("sw.js?v="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"");const m=t.match(/SHELL="([^"]+)"/);if(m&&m[1]!==APPV&&LS.get("cu-updskip","")!==m[1]){$("upd").hidden=false;$("upd").dataset.v=m[1]}}catch(e){}}
 $("upd-go").onclick=async()=>{$("upd-go").textContent="…";try{const r=await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}location.reload()};
 $("upd-x").onclick=()=>{LS.set("cu-updskip",$("upd").dataset.v||"");$("upd").hidden=true};
 setTimeout(checkUpd,4000);setInterval(checkUpd,30*60e3);document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkUpd()});
+
+// ---- Vérification du thermomètre sur 10 ans (backtest) : AUC = probabilité qu'un jour de cueillette réelle ait un meilleur score qu'un jour pris au hasard à la même saison
+const BT_PTS=[[50.7,1.8],[50.75,2.25],[50.38,1.95]];
+const BT_SP={cepe:["Boletus edulis","Boletus reticulatus","Boletus aereus","Boletus pinophilus"],girolle:["Cantharellus cibarius","Cantharellus pallens","Cantharellus amethysteus","Cantharellus ferruginascens","Cantharellus friesii"],trompette:["Craterellus cornucopioides"],tube:["Craterellus tubaeformis","Cantharellus tubaeformis"],pied:["Hydnum repandum","Hydnum rufescens"],sinueuse:["Pseudocraterellus undulatus","Craterellus undulatus","Craterellus sinuosus"],cendree:["Craterellus cinereus"],bai:["Imleria badia"],orange:["Leccinum aurantiacum","Leccinum albostipitatum"],piedbleu:["Lepista nuda"],charbonniere:["Russula cyanoxantha"],palomet:["Russula virescens"],coulemelle:["Macrolepiota procera"],sparassis:["Sparassis crispa"]};
+function auc(pos,neg){if(!pos.length||!neg.length)return null;let w=0;const ns=[...neg].sort((a,b)=>a-b);for(const x of pos){let lo=0,hi=ns.length;while(lo<hi){const mid=(lo+hi)>>1;if(ns[mid]<x)lo=mid+1;else hi=mid}let eq=lo;while(eq<ns.length&&ns[eq]===x)eq++;w+=lo+(eq-lo)/2}return w/(pos.length*ns.length)}
+async function backtest(){const out=$("bt-out");const say=h=>out.innerHTML=h;$("bt-go").disabled=true;
+  try{say("<p>Météo 2015 → aujourd'hui (3 secteurs)…</p>");const end=ymd(new Date(Date.now()-3*864e5));const WS=[];
+    for(const [la,lo] of BT_PTS){const j=await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${la}&longitude=${lo}&start_date=2015-01-01&end_date=${end}&daily=precipitation_sum,temperature_2m_max,temperature_2m_min,et0_fao_evapotranspiration&timezone=Europe%2FParis`).then(r=>{if(!r.ok)throw 0;return r.json()});WS.push({daily:j.daily})}
+    const idx=WS[0].daily.time.reduce((o,t,k)=>(o[t]=k,o),{});const rows=[],res=LS.get("cu-model",{});const P1=[],P2=[],N1=[],N2=[];
+    for(const [sp,names] of Object.entries(BT_SP)){if(!MET[sp])continue;say(`<p>Observations publiées : ${esc(SPN[sp]||sp)}…</p>`);const cases={};
+      for(const n of names){let off=0;while(off<3000){const j=await fetch(`https://api.gbif.org/v1/occurrence/search?scientificName=${encodeURIComponent(n)}&decimalLatitude=50.15,51.05&decimalLongitude=1.5,2.6&year=2015,2026&hasCoordinate=true&limit=300&offset=${off}`).then(r=>r.json());
+        j.results.forEach(o=>{const e=o.eventDate||"",d=e.slice(0,10);if(d.length!==10||e.includes("/")||idx[d]==null||idx[d]<70)return;let bi=0,bd=1e9;BT_PTS.forEach(([a,b],i)=>{const q=(a-o.decimalLatitude)**2+((b-o.decimalLongitude)*.63)**2;if(q<bd){bd=q;bi=i}});cases[d+"|"+bi]=[idx[d],bi]});
+        off+=300;if(j.endOfRecords||off>=j.count)break}}
+      const C=Object.values(cases);if(C.length<5){rows.push([sp,C.length,null,null]);continue}
+      const p1=[],p2=[],n1=[],n2=[];const T=WS[0].daily.time;
+      for(const [d,bi] of C){const W=WS[bi];p1.push(scoreV1(sp,d,W).v);p2.push(scoreV2(sp,d,W).v);
+        const doy=doyOf(T[d]+"T12:00:00");for(let y=2015;y<=new Date().getFullYear();y++){for(let k=-15;k<=15;k+=3){const dd=new Date(y,0,doy+k);const t=ymd(new Date(dd.getTime()+12*36e5));const kk=idx[t];if(kk==null||kk<70||kk===d)continue;n1.push(scoreV1(sp,kk,W).v);n2.push(scoreV2(sp,kk,W).v)}}}
+      const a1=auc(p1,n1),a2=auc(p2,n2);rows.push([sp,C.length,a1,a2]);if(C.length>=10)res[sp]=a2>=a1?2:1;P1.push(...p1);P2.push(...p2);N1.push(...n1.filter((_,k)=>k%4===0));N2.push(...n2.filter((_,k)=>k%4===0))}
+    const g1=auc(P1,N1),g2=auc(P2,N2);if(g1!=null&&P1.length>=20){res._all=g2>=g1?2:1;rows.push(["_all",P1.length,g1,g2])}
+    LS.set("cu-model",res);
+    const fm=a=>a==null?"–":Math.round(a*100);
+    say(`<table style="width:100%;border-collapse:collapse;font-size:.88rem"><tr><th style="text-align:left">Espèce</th><th>jours</th><th>ancien</th><th>nouveau</th></tr>${rows.map(([sp,n,a1,a2])=>`<tr${sp==="_all"?' style="border-top:2px solid #ccc;font-weight:700"':""}><td>${sp==="_all"?"Toutes espèces":esc(SPN[sp]||sp)}</td><td style="text-align:center">${n}</td><td style="text-align:center">${fm(a1)}</td><td style="text-align:center;font-weight:${a2!=null&&a1!=null&&a2>a1?800:400}">${fm(a2)}</td></tr>`).join("")}</table>
+      <p class="note">Note sur 100 : 50 = pas mieux que le hasard, 70 = bon, 80+ = très bon. Avec moins de 10 jours d'observation, le résultat n'est pas fiable et l'appli ne change rien pour l'espèce. L'appli utilise désormais le calcul gagnant pour chaque espèce testée.</p>
+      <div class="row"><button id="bt-share">💬 Envoyer le résultat à Claude</button></div>`);
+    $("bt-share").onclick=()=>{const t="Résultat de la vérification du thermomètre (AUC ancien → nouveau) :\n"+rows.map(([sp,n,a1,a2])=>`${sp==="_all"?"Toutes espèces":SPN[sp]||sp} : ${n} jours, ${fm(a1)} → ${fm(a2)}`).join("\n");if(navigator.share)navigator.share({text:t}).catch(()=>{});else navigator.clipboard.writeText(t).then(()=>status("Résultat copié."))};
+    if(typeof drawThermo==="function")drawThermo()}
+  catch(e){say(`<p>La vérification n'a pas pu se faire (réseau ?). Réessayez avec une bonne connexion.</p>`)}finally{$("bt-go").disabled=false}}
+$("bt-go").onclick=backtest;
 // ---- Écran d'accueil
 function homeHello(){const h=new Date().getHours(),n=LS.get("cu-name","");$("hm-hello").textContent=(h<5||h>=18?"Bonsoir":"Bonjour")+(n?" "+n:"")+" 🍄";$("hm-name").hidden=!!n||LS.get("cu-name-skip",0)===1;
   $("hm-date").textContent=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}
