@@ -1129,6 +1129,7 @@ body.gants .lp-bot .row button{min-height:66px}
    <button class="tile" id="t-bilan"><span class="ti">📊</span>Bilan<small>de saison</small></button>
    <button class="tile" id="t-help"><span class="ti">💡</span>Mode d'emploi</button>
   </div>
+  <div class="hcard hm-save" id="hm-sus" hidden style="border-color:#e08a7a;background:#fff1ee"></div>
   <div class="hcard hm-save" id="hm-save" hidden></div>
   <div class="hcard" id="hm-revc" hidden><h2>À revisiter</h2><div class="hm-last" id="hm-rev"></div></div>
   <div class="hcard" id="hm-learnc" hidden><h2>Ce que vos sorties vous apprennent</h2><div class="learn" id="hm-learn"></div><button class="back" id="hm-learn-more">Tout voir ›</button></div>
@@ -1579,12 +1580,13 @@ function status(h){$("status").innerHTML=h}
 function startGps(){
   if(!navigator.geolocation){status("Ce navigateur ne donne pas accès au GPS.");return}
   $("b-gps").classList.add("on");status("Recherche du signal GPS…");follow=true;
-  watch=navigator.geolocation.watchPosition(p=>{const first=!me;me={lat:p.coords.latitude,lon:p.coords.longitude,acc:Math.round(p.coords.accuracy)};if(first)loadWx(false);const ll=[me.lat,me.lon];
+  watch=navigator.geolocation.watchPosition(p=>{const first=!me;me={lat:p.coords.latitude,lon:p.coords.longitude,acc:Math.round(p.coords.accuracy),t:Date.now(),v:p.coords.speed};if(first)loadWx(false);const ll=[me.lat,me.lon];
     if(!meMarker){meMarker=L.marker(ll,{icon:pin("#1a73e8",18),zIndexOffset:1000}).addTo(map);meCircle=L.circle(ll,{radius:me.acc,color:"#1a73e8",weight:1,fillOpacity:.1,interactive:false}).addTo(map);map.setView(ll,Math.max(map.getZoom(),16))}
     else{meMarker.setLatLng(ll);meCircle.setLatLng(ll).setRadius(me.acc);if(follow)map.panTo(ll)}
     updateStatus()},
-  err=>{status({1:"Accès à la position refusé : autorisez la localisation pour cette page.",2:"Position introuvable (pas de signal).",3:"Le GPS met trop de temps à répondre."}[err.code]||err.message);stopGps(false)},
+  err=>{window.gpsErr=err.code;status({1:"Accès à la position refusé : Réglages › Confidentialité › Service de localisation › Sites web Safari › « Lors de l'utilisation ».",2:"Position introuvable (pas de signal).",3:"Le GPS met trop de temps à répondre."}[err.code]||err.message);stopGps(false)},
   {enableHighAccuracy:true,maximumAge:5000,timeout:30000})}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&watch!==null){navigator.geolocation.clearWatch(watch);watch=null;const f=follow;startGps();follow=f}});
 function stopGps(clear=true){if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;$("b-gps").classList.remove("on");if(clear)status("Localisation arrêtée.")}
 map.on("dragstart",()=>{follow=false});
 $("b-gps").onclick=()=>{if(watch!==null){if(!follow&&me){follow=true;map.setView([me.lat,me.lon]);return}stopGps()}else startGps()};
@@ -1616,12 +1618,16 @@ const phCol=v=>v==null||v===""?null:v<4.5?"#c0392b":v<5.5?"#e67e22":v<6.5?"#c9a2
 const mine=L.layerGroup().addTo(map);
 const QTY=["Rien trouvé","1 ou 2","Une poignée","Un panier"];
 const qtxt=f=>f.q!=null&&f.q!==""?QTY[f.q]:"";
-function popMine(f,i){return `<div class="pop"><h3>${f.sp==="mesure"?"Mesure de pH":SPN[f.sp]+" (mon coin)"}</h3><p>${new Date(f.t).toLocaleDateString("fr-FR")}${qtxt(f)?` · ${qtxt(f)}`:""}${f.ph!=null&&f.ph!==""?` · <span class="phb" style="background:${phCol(f.ph)}">pH ${f.ph}</span>`:""}${f.arbre?` · ${esc(f.arbre)}`:""}</p><p>${esc(f.note)}</p><div class="ph" data-ph="${(f.photos||[]).join(",")}"></div><div class="links"><a href="${gmaps(f.lat,f.lon)}" target="_blank" rel="noopener">Itinéraire</a>${aimLink(f.lat,f.lon,"Mon coin")}</div><button class="pedit" data-edit="${i}">✏️ Modifier</button> <button class="pedit" data-share="${i}">💬 Envoyer à Claude</button><br><button class="pedit" data-move="${i}">✋ Déplacer</button> <button class="pedit" data-delc="${i}" style="color:#b03a2e">🗑️ Supprimer</button></div>`}
+function popMine(f,i){const sus=suspects().find(o=>o.i===i);return `<div class="pop">${sus?`<p style="color:#b03a2e;font-weight:700;margin:0 0 4px">⚠️ Position à vérifier (${sus.why}) : utilisez ✋ Déplacer.</p>`:""}<h3>${f.sp==="mesure"?"Mesure de pH":SPN[f.sp]+" (mon coin)"}</h3><p>${new Date(f.t).toLocaleDateString("fr-FR")}${qtxt(f)?` · ${qtxt(f)}`:""}${f.ph!=null&&f.ph!==""?` · <span class="phb" style="background:${phCol(f.ph)}">pH ${f.ph}</span>`:""}${f.arbre?` · ${esc(f.arbre)}`:""}</p><p>${esc(f.note)}</p><div class="ph" data-ph="${(f.photos||[]).join(",")}"></div><div class="links"><a href="${gmaps(f.lat,f.lon)}" target="_blank" rel="noopener">Itinéraire</a>${aimLink(f.lat,f.lon,"Mon coin")}</div><button class="pedit" data-edit="${i}">✏️ Modifier</button> <button class="pedit" data-share="${i}">💬 Envoyer à Claude</button><br>${(()=>{const q=trailPosAt(f.t);return q&&dist(q,f)>80?`<button class="pedit" data-snap="${i}">🥾 Replacer sur ma balade</button> `:""})()}<button class="pedit" data-move="${i}">✋ Déplacer</button> <button class="pedit" data-delc="${i}" style="color:#b03a2e">🗑️ Supprimer</button></div>`}
 const mineMk=[];
+function trailPosAt(t){const ts=Math.round(t/1000);let best=null;[TRAIL,...LS.get("cu-walks",[])].forEach(w=>(w.p||[]).forEach(q=>{if(!q[2])return;const dt=Math.abs(q[2]-ts);if(dt<=600&&(!best||dt<best.dt))best={lat:q[0],lon:q[1],dt}}));return best}
+function suspects(){const l=LS.get("cu-finds",[]),cnt={};l.forEach(f=>{const k=f.lat.toFixed(5)+","+f.lon.toFixed(5);cnt[k]=(cnt[k]||0)+1});
+  return l.map((f,i)=>({f,i,why:f.nogps?"noté sans GPS":cnt[f.lat.toFixed(5)+","+f.lon.toFixed(5)]>1&&f.sp!=="mesure"?"même position exacte qu'un autre coin":""})).filter(o=>o.why)}
 function drawMine(){mine.clearLayers();mineMk.length=0;LS.get("cu-finds",[]).forEach((f,i)=>{const hasPh=f.ph!=null&&f.ph!=="";
   mineMk[i]=L.marker([f.lat,f.lon],{icon:pin(f.sp==="mesure"?phCol(f.ph):COL[f.sp]||"#777",hasPh?24:18,hasPh?String(f.ph).replace(".",","):"★","50%")}).addTo(mine).bindPopup(popMine(f,i))})}
 async function fillPhotos(root){for(const d of root.querySelectorAll("[data-ph]")){const ids=d.dataset.ph?d.dataset.ph.split(","):[];d.innerHTML="";for(const id of ids){const u=await photoURL(id);if(!u)continue;const im=document.createElement("img");im.src=u;im.onclick=()=>{$("viewer-img").src=u;$("viewer").hidden=false};d.appendChild(im)}}}
 map.on("popupopen",e=>{const el=e.popup.getElement();fillPhotos(el);el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{map.closePopup();openEdit(+b.dataset.edit)});el.querySelectorAll("[data-share]").forEach(b=>b.onclick=()=>{map.closePopup();openShare(+b.dataset.share)});
+  el.querySelectorAll("[data-snap]").forEach(b=>b.onclick=()=>{const l=LS.get("cu-finds",[]),f=l[+b.dataset.snap],q=f&&trailPosAt(f.t);if(!q)return;f.lat=q.lat;f.lon=q.lon;delete f.wx;delete f.nogps;LS.set("cu-finds",l);map.closePopup();drawMine();map.setView([q.lat,q.lon],Math.max(map.getZoom(),16));status(`Coin replacé sur votre trajet, à l'endroit où vous étiez à ${new Date(f.t).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}.`);fillCoinWx()});
   el.querySelectorAll("[data-move]").forEach(b=>b.onclick=()=>{map.closePopup();startMove(+b.dataset.move)});
   el.querySelectorAll("[data-delc]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Toucher encore pour confirmer";return}
     const l=LS.get("cu-finds",[]);const [f]=l.splice(+b.dataset.delc,1);LS.set("cu-finds",l);for(const id of (f&&f.photos||[]))try{await delPhoto(id)}catch(e){}
@@ -1634,7 +1640,7 @@ function startMove(i){const m=mineMk[i];if(!m)return;moveIdx=i;moveLL=m.getLatLn
   $("movebar").innerHTML=`<b>✋ Faites glisser le coin orange</b> au bon endroit, ou touchez la carte là où il doit aller.<div class="row"><button id="mv-no">Annuler</button>${me?`<button id="mv-gps">📍 Ma position</button>`:""}<button id="mv-ok" class="ok">✓ Valider</button></div>`;$("movebar").hidden=false;
   $("mv-ok").onclick=endMove.bind(null,true);$("mv-no").onclick=endMove.bind(null,false);if($("mv-gps"))$("mv-gps").onclick=()=>{moveLL=L.latLng(me.lat,me.lon);m.setLatLng(moveLL)}}
 map.on("click",e=>{if(moveIdx!=null&&mineMk[moveIdx]){moveLL=e.latlng;mineMk[moveIdx].setLatLng(moveLL)}});
-function endMove(ok){if(moveIdx==null)return;if(ok&&moveLL){const l=LS.get("cu-finds",[]);const f=l[moveIdx];if(f){f.lat=+moveLL.lat.toFixed(6);f.lon=+moveLL.lng.toFixed(6);delete f.wx;LS.set("cu-finds",l)}}
+function endMove(ok){if(moveIdx==null)return;if(ok&&moveLL){const l=LS.get("cu-finds",[]);const f=l[moveIdx];if(f){f.lat=+moveLL.lat.toFixed(6);f.lon=+moveLL.lng.toFixed(6);delete f.wx;delete f.nogps;LS.set("cu-finds",l)}}
   moveIdx=null;$("movebar").hidden=true;drawMine();status(ok?"Coin déplacé.":"Déplacement annulé.");if(ok)fillCoinWx()}
 $("viewer").onclick=()=>$("viewer").hidden=true;
 let pending=null,draft=[];
@@ -1646,9 +1652,20 @@ function setQ(q){qSel=q;$("add-qty").querySelectorAll("button").forEach(b=>b.cla
 $("add-qty").querySelectorAll("button").forEach(b=>b.onclick=()=>setQ(String(qSel)===b.dataset.q?null:+b.dataset.q));
 function resetAdd(){setTimeout(updSos,0);$("add-drag").hidden=true;editIdx=null;relMode=false;$("add-title").textContent="Noter un coin";$("add-ok").textContent="Enregistrer";$("add-move").hidden=true;$("add-sp").value=SP;$("add-note").value="";$("add-ph").value="";$("add-arbre").value="";setQ(null);draft=[];drawDraft();$("s-add").hidden=false}
 function openAdd(pos,txt){pending=pos;$("add-pos").textContent=txt;resetAdd()}
-function addHere(){if(me){pending={lat:me.lat,lon:me.lon};$("add-pos").textContent=`À votre position GPS (± ${me.acc} m).`}else{const c=map.getCenter();pending={lat:c.lat,lon:c.lng};$("add-pos").textContent="GPS inactif : le coin sera placé au centre de la carte. Astuce : appui long sur la carte pour choisir l'endroit."}
+const nearForest=ll=>{const f=D.forets.map(x=>({x,d:dist(ll,x)})).sort((a,b)=>a.d-b.d)[0];return f&&f.d<6000?f.x.nom:"hors des forêts connues"};
+function addHere(){if(fresh()){pending={lat:me.lat,lon:me.lon};$("add-pos").textContent=`À votre position GPS (± ${me.acc} m).`}else{const c=map.getCenter();pending={lat:c.lat,lon:c.lng,nogps:1};$("add-pos").innerHTML=`<b style="color:#b03a2e">⚠️ Sans GPS : le coin sera placé au centre de la carte (${esc(nearForest({lat:c.lat,lon:c.lng}))}).</b> Vérifiez que c'est le bon endroit.`}
   resetAdd()}
-$("b-add").onclick=()=>document.body.classList.contains("gants")?openQuick():addHere();
+// Avant de noter : attendre le GPS au lieu de placer le coin au centre de la carte sans prévenir
+let gpsWaitT=null;
+const fresh=()=>me&&Date.now()-(me.t||0)<20000&&me.acc<=60;
+function withPosition(go){if(fresh()){go();return}window.gpsErr=null;if(watch===null)startGps();
+  const bar=$("movebar");const close=()=>{clearInterval(gpsWaitT);bar.hidden=true};
+  const draw=fail=>{bar.innerHTML=fail?`<b>⚠️ GPS indisponible</b><br><small>${window.gpsErr===1?"La localisation est refusée pour cette appli : iPhone › Réglages › Confidentialité et sécurité › Service de localisation › Sites web Safari › « Lors de l'utilisation » (et « Position exacte »).":"Pas de signal pour l'instant. Réessayez à découvert, ou placez le coin vous-même."}</small>`:`<b>📡 Recherche de votre position GPS…</b><br><small>${me?"La dernière position connue est trop ancienne ou imprécise : j'attends une position fraîche. ":""}Restez quelques secondes à découvert, le coin sera noté dès que le GPS répond.</small>`;
+    bar.innerHTML+=`<div class="row"><button id="gw-no">Annuler</button>${fail?`<button id="gw-retry">Réessayer</button>`:""}<button id="gw-map">Placer au centre de la carte</button></div>`;bar.hidden=false;
+    $("gw-no").onclick=close;$("gw-map").onclick=()=>{close();go()};if($("gw-retry"))$("gw-retry").onclick=()=>withPosition(go)};
+  draw(false);clearInterval(gpsWaitT);const t0=Date.now();
+  gpsWaitT=setInterval(()=>{if(fresh()){close();go()}else if(watch===null||Date.now()-t0>25000){clearInterval(gpsWaitT);draw(true)}},400)}
+$("b-add").onclick=()=>withPosition(()=>document.body.classList.contains("gants")?openQuick():addHere());
 async function openEdit(i){const f=LS.get("cu-finds",[])[i];if(!f)return;$("s-list").hidden=true;
   editIdx=i;pending={lat:f.lat,lon:f.lon};$("add-title").textContent="Modifier le coin";$("add-ok").textContent="Enregistrer les modifications";
   $("add-pos").textContent=`Noté le ${new Date(f.t).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} à ${new Date(f.t).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}.`;
@@ -1661,13 +1678,13 @@ $("add-ok").onclick=async()=>{const ids=[];try{for(const p of draft){if(p.id){id
   let ph=$("add-ph").value.replace(",",".");ph=ph===""?null:Math.round(parseFloat(ph)*10)/10;if(ph!=null&&(isNaN(ph)||ph<2||ph>10))ph=null;
   const l=LS.get("cu-finds",[]);const vals={sp:$("add-sp").value,note:$("add-note").value.trim(),ph,arbre:$("add-arbre").value,q:qSel,photos:ids,lab:draft.map(p=>p.lab||"")};if(!vals.lab.some(Boolean))delete vals.lab;let msg;
   if(editIdx!=null&&l[editIdx]){const old=l[editIdx];for(const id of (old.photos||[]))if(!ids.includes(id))try{await delPhoto(id)}catch(e){}
-    const moved=old.lat!==pending.lat||old.lon!==pending.lon;l[editIdx]={...old,...pending,...vals};if(moved)delete l[editIdx].wx;msg="Coin modifié."}
+    const moved=old.lat!==pending.lat||old.lon!==pending.lon;l[editIdx]={...old,...pending,...vals};if(moved){delete l[editIdx].wx;delete l[editIdx].nogps}msg="Coin modifié."}
   else{l.push({...pending,...vals,t:Date.now()});msg=`Coin enregistré${ids.length?` avec ${ids.length} photo${ids.length>1?"s":""}`:""}.`}
   LS.set("cu-finds",l);const wasEdit=editIdx!=null;editIdx=null;draft=[];drawMine();$("s-add").hidden=true;
   const un=unsaved();status(msg+(un>=10?` <b>${un} coins pas encore sauvegardés</b> : pensez à faire une sauvegarde (★ Mes coins).`:""));
   if(wasEdit&&!$("home").hidden)renderHome();
   if(relMode&&!wasEdit){relMode=false;openShare(l.length-1)}else fillCoinWx()};
-function renderList(){const l=LS.get("cu-finds",[]);$("list").innerHTML=l.length?l.map((f,i)=>`<div class="find"><div class="fi"><div data-ph="${(f.photos||[]).slice(0,1).join(",")}"></div><div><b>${f.sp==="mesure"?"Mesure":SPN[f.sp]}</b> · ${new Date(f.t).toLocaleDateString("fr-FR")}${f.ph!=null&&f.ph!==""?` <span class="phb" style="background:${phCol(f.ph)}">pH ${f.ph}</span>`:""}<small>${esc([qtxt(f),f.arbre,f.note].filter(Boolean).join(" · "))}</small><small>${(f.photos||[]).length} photo(s) · ${f.lat.toFixed(5)}, ${f.lon.toFixed(5)}</small></div></div><div class="row" style="flex:0 0 auto;flex-direction:column"><button data-go="${i}">Voir</button><button data-edit="${i}">Modifier</button><button data-share="${i}">Claude</button><button data-del="${i}">Suppr.</button></div></div>`).reverse().join(""):`<p class="note">Aucun coin pour l'instant. Touchez « Noter ici » sur place.</p>`;
+function renderList(){const l=LS.get("cu-finds",[]);const SUS={};suspects().forEach(o=>SUS[o.i]=o.why);$("list").innerHTML=l.length?l.map((f,i)=>`<div class="find"><div class="fi"><div data-ph="${(f.photos||[]).slice(0,1).join(",")}"></div><div><b>${f.sp==="mesure"?"Mesure":SPN[f.sp]}</b> · ${new Date(f.t).toLocaleDateString("fr-FR")}${f.ph!=null&&f.ph!==""?` <span class="phb" style="background:${phCol(f.ph)}">pH ${f.ph}</span>`:""}<small>${esc([qtxt(f),f.arbre,f.note].filter(Boolean).join(" · "))}</small>${SUS[i]?`<small style="color:#b03a2e;font-weight:700">⚠️ Position à vérifier : ${SUS[i]}</small>`:""}<small>${(f.photos||[]).length} photo(s) · ${f.lat.toFixed(5)}, ${f.lon.toFixed(5)}</small></div></div><div class="row" style="flex:0 0 auto;flex-direction:column"><button data-go="${i}">Voir</button><button data-edit="${i}">Modifier</button><button data-share="${i}">Claude</button><button data-del="${i}">Suppr.</button></div></div>`).reverse().join(""):`<p class="note">Aucun coin pour l'instant. Touchez « Noter ici » sur place.</p>`;
   fillPhotos($("list"));
   $("list").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const f=LS.get("cu-finds",[])[+b.dataset.go];follow=false;map.setView([f.lat,f.lon],17);$("s-list").hidden=true});
   $("list").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openEdit(+b.dataset.edit));
@@ -1873,11 +1890,14 @@ map.on("contextmenu",e=>{const ll=e.latlng;const d=L.DomUtil.create("div","lp");
 // ---- Mon trajet (fil d'Ariane)
 let TRAIL=LS.get("cu-trail",{t:0,p:[]});
 const pd=(a,b)=>dist({lat:a[0],lon:a[1]},{lat:b[0],lon:b[1]});
-function trailLen(p){let d=0;for(let k=1;k<p.length;k++)d+=pd(p[k-1],p[k]);return d}
+// coupe le trajet aux trous (iPhone en veille, voiture) pour ne pas tracer ni compter de lignes droites
+function segs(p){const out=[];let cur=[];for(let k=0;k<p.length;k++){const a=p[k-1],b=p[k];if(a){const d=pd(a,b),dt=a[2]&&b[2]?b[2]-a[2]:null;if(d>250||(dt!=null&&dt>600&&d>80)||(dt&&d/dt>3)){if(cur.length>1)out.push(cur);cur=[]}}cur.push([b[0],b[1]])}if(cur.length>1)out.push(cur);return out}
+function trailLen(p){let d=0;segs(p).forEach(s=>{for(let k=1;k<s.length;k++)d+=pd(s[k-1],s[k])});return d}
 function archiveTrail(){if(TRAIL.p&&TRAIL.p.length>=5){const w=LS.get("cu-walks",[]);if(!w.some(x=>x.t0===(TRAIL.t0||TRAIL.t))){w.push({t0:TRAIL.t0||TRAIL.t,t1:TRAIL.t,p:TRAIL.p,d:Math.round(trailLen(TRAIL.p))});while(w.length>300)w.shift();LS.set("cu-walks",w)}}}
 if(Date.now()-TRAIL.t>3*36e5){archiveTrail();TRAIL={t:Date.now(),t0:Date.now(),p:[]};LS.set("cu-trail",TRAIL)}
-const trailLine=L.polyline(TRAIL.p,{color:"#1a73e8",weight:3,opacity:.6,dashArray:"2 6",interactive:false}).addTo(map);
-function addTrail(){if(!me||me.acc>40)return;if(TRAIL.p.length&&Date.now()-TRAIL.t>3*36e5){archiveTrail();TRAIL={t:Date.now(),t0:Date.now(),p:[]};trailLine.setLatLngs([])}if(!TRAIL.p.length)TRAIL.t0=Date.now();const l=TRAIL.p[TRAIL.p.length-1];if(l&&dist({lat:l[0],lon:l[1]},me)<15)return;TRAIL.p.push([+me.lat.toFixed(6),+me.lon.toFixed(6)]);TRAIL.t=Date.now();trailLine.setLatLngs(TRAIL.p);if(TRAIL.p.length%5===0)LS.set("cu-trail",TRAIL)}
+const trailLine=L.polyline(segs(TRAIL.p),{color:"#1a73e8",weight:3,opacity:.6,dashArray:"2 6",interactive:false}).addTo(map);
+function addTrail(){if(!me||me.acc>40)return;if(TRAIL.p.length&&Date.now()-TRAIL.t>3*36e5){archiveTrail();TRAIL={t:Date.now(),t0:Date.now(),p:[]};trailLine.setLatLngs([])}if(!TRAIL.p.length)TRAIL.t0=Date.now();const l=TRAIL.p[TRAIL.p.length-1];if(l&&dist({lat:l[0],lon:l[1]},me)<15)return;if(me.v!=null&&me.v>2.5)return;const now=Math.round(Date.now()/1000);if(l&&l[2]&&now>l[2]&&dist({lat:l[0],lon:l[1]},me)/(now-l[2])>3&&dist({lat:l[0],lon:l[1]},me)<2000)return;
+  TRAIL.p.push([+me.lat.toFixed(6),+me.lon.toFixed(6),now]);TRAIL.t=Date.now();trailLine.setLatLngs(segs(TRAIL.p));if(TRAIL.p.length%5===0)LS.set("cu-trail",TRAIL)}
 $("trail-clear").onclick=()=>{archiveTrail();TRAIL={t:Date.now(),t0:Date.now(),p:[]};trailLine.setLatLngs([]);LS.set("cu-trail",TRAIL);drawWalkZones();status("Trajet terminé : il est rangé dans 🥾 Mes balades.")};
 // ---- Aujourd'hui
 function renderToday(){if(!WX){$("td-wx").textContent="Météo pas encore chargée : ouvrez l'appli avec du réseau.";$("td-list").innerHTML="";loadWx(true);return}
@@ -2078,7 +2098,7 @@ $("add-sp").addEventListener("change",updSos);
 function setGants(on){document.body.classList.toggle("gants",on);LS.set("cu-gants",on?1:0);$("hm-gants").checked=on;setTimeout(()=>map.invalidateSize(),50)}
 $("hm-gants").onchange=e=>setGants(e.target.checked);setGants(LS.get("cu-gants",0)===1);
 let qkPos=null;
-function openQuick(){if(me){qkPos={lat:me.lat,lon:me.lon};$("qk-pos").textContent=`À votre position GPS (± ${me.acc} m).`}else{const c=map.getCenter();qkPos={lat:c.lat,lon:c.lng};$("qk-pos").textContent="GPS inactif : coin placé au centre de la carte."}
+function openQuick(){if(fresh()){qkPos={lat:me.lat,lon:me.lon};$("qk-pos").textContent=`À votre position GPS (± ${me.acc} m).`}else{const c=map.getCenter();qkPos={lat:c.lat,lon:c.lng,nogps:1};$("qk-pos").innerHTML=`<b style="color:#b03a2e">⚠️ Sans GPS : coin placé au centre de la carte (${esc(nearForest({lat:c.lat,lon:c.lng}))}).</b>`}
   $("qk-sp").innerHTML=$("add-sp").innerHTML;$("qk-sp").value=SP;showSos($("qk-sos"),SP);$("s-quick").hidden=false}
 $("qk-sp").onchange=()=>showSos($("qk-sos"),$("qk-sp").value);
 $("s-quick").querySelectorAll("[data-qq]").forEach(b=>b.onclick=()=>{const l=LS.get("cu-finds",[]);l.push({...qkPos,sp:$("qk-sp").value,note:"",ph:null,arbre:"",q:+b.dataset.qq,photos:[],t:Date.now()});LS.set("cu-finds",l);drawMine();$("s-quick").hidden=true;
@@ -2089,7 +2109,7 @@ $("qk-cancel").onclick=()=>$("s-quick").hidden=true;
 // ---- Mes balades
 const zonesLayer=L.layerGroup(),walkLine=L.polyline([],{color:"#7b3fa0",weight:4,opacity:.9});
 function drawWalkZones(){zonesLayer.clearLayers();if(!LS.get("cu-zonesf",0)){map.removeLayer(zonesLayer);return}
-  [...LS.get("cu-walks",[]),...(TRAIL.p.length>1?[{p:TRAIL.p}]:[])].forEach(w=>L.polyline(w.p,{color:"#7b3fa0",weight:22,opacity:.18,lineCap:"round",lineJoin:"round",interactive:false}).addTo(zonesLayer));zonesLayer.addTo(map)}
+  [...LS.get("cu-walks",[]),...(TRAIL.p.length>1?[{p:TRAIL.p}]:[])].forEach(w=>L.polyline(segs(w.p),{color:"#7b3fa0",weight:22,opacity:.18,lineCap:"round",lineJoin:"round",interactive:false}).addTo(zonesLayer));zonesLayer.addTo(map)}
 $("w-zones").onchange=e=>{LS.set("cu-zonesf",e.target.checked?1:0);drawWalkZones();if(e.target.checked)status("Zones fouillées en violet clair : vos trajets des balades enregistrées.")};
 const dur=ms=>{const m=Math.round(ms/6e4);return m<60?m+" min":Math.floor(m/60)+" h "+String(m%60).padStart(2,"0")};
 function walkCoins(t0,t1){return LS.get("cu-finds",[]).map((f,i)=>({f,i})).filter(o=>o.f.t>=t0-6e5&&o.f.t<=t1+6e5&&o.f.sp!=="mesure")}
@@ -2099,9 +2119,9 @@ function renderWalks(){$("w-zones").checked=!!LS.get("cu-zonesf",0);
   $("w-cur").innerHTML=TRAIL.p.length>1?`<div class="hcard" style="box-shadow:none;border:1px solid var(--line)"><b>Balade en cours</b> · ${fmt(trailLen(TRAIL.p))} · ${dur(TRAIL.t-(TRAIL.t0||TRAIL.t))}<br><small class="note">${coinsTxt(walkCoins(TRAIL.t0||TRAIL.t,Date.now()))}</small><div class="row" style="margin-top:6px"><button id="w-end">Terminer cette balade</button></div></div>`:`<p class="note">Pas de balade en cours. Activez 🎯 en forêt.</p>`;
   if($("w-end"))$("w-end").onclick=()=>{$("trail-clear").click();renderWalks()};
   const w=LS.get("cu-walks",[]).map((x,i)=>({...x,i})).reverse();
-  $("walks").innerHTML=w.length?w.map(x=>`<button data-w="${x.i}"><span style="font-size:1.4rem">🥾</span><span><b>${new Date(x.t0).toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</b> · ${fmt(x.d)} · ${dur(x.t1-x.t0)}<br><small class="note">${coinsTxt(walkCoins(x.t0,x.t1))}</small></span></button>`).join(""):`<p class="note">Aucune balade enregistrée pour l'instant.</p>`;
-  $("walks").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{const x=LS.get("cu-walks",[])[+b.dataset.w];walkLine.setLatLngs(x.p).addTo(map);$("s-walks").hidden=true;closeHome();follow=false;map.fitBounds(walkLine.getBounds(),{padding:[30,30]});
-    status(`Balade du ${new Date(x.t0).toLocaleDateString("fr-FR")} en violet : ${fmt(x.d)}, ${dur(x.t1-x.t0)}.`)})}
+  $("walks").innerHTML=w.length?w.map(x=>`<button data-w="${x.i}"><span style="font-size:1.4rem">🥾</span><span><b>${new Date(x.t0).toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</b> · ${fmt(trailLen(x.p))} · ${dur(x.t1-x.t0)}<br><small class="note">${coinsTxt(walkCoins(x.t0,x.t1))}</small></span></button>`).join(""):`<p class="note">Aucune balade enregistrée pour l'instant.</p>`;
+  $("walks").querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{const x=LS.get("cu-walks",[])[+b.dataset.w];walkLine.setLatLngs(segs(x.p)).addTo(map);$("s-walks").hidden=true;closeHome();follow=false;map.fitBounds(walkLine.getBounds(),{padding:[30,30]});
+    status(`Balade du ${new Date(x.t0).toLocaleDateString("fr-FR")} en violet : ${fmt(trailLen(x.p))}, ${dur(x.t1-x.t0)}.`)})}
 function openWalks(){closeHome();renderWalks();$("s-walks").hidden=false}
 $("w-close").onclick=()=>$("s-walks").hidden=true;
 drawWalkZones();
@@ -2114,7 +2134,7 @@ function renderBilan(){const C=LS.get("cu-finds",[]).filter(f=>f.sp!=="mesure"),
   $("bl-years").querySelectorAll("[data-y]").forEach(b=>b.onclick=()=>{blYear=+b.dataset.y;renderBilan()});
   const stat=y=>{const c=C.filter(f=>new Date(f.t).getFullYear()===y),w=W.filter(x=>new Date(x.t0).getFullYear()===y),ok=c.filter(f=>f.q!==0);
     const days=new Set([...c.map(f=>new Date(f.t).toDateString()),...w.map(x=>new Date(x.t0).toDateString())]);
-    return {c,ok,w,days:days.size,km:w.reduce((a,x)=>a+x.d,0)/1000,pan:c.filter(f=>f.q===3).length}};
+    return {c,ok,w,days:days.size,km:w.reduce((a,x)=>a+(x.p?trailLen(x.p):x.d),0)/1000,pan:c.filter(f=>f.q===3).length}};
   const s=stat(blYear),p=stat(blYear-1);
   if(!s.c.length&&!s.w.length){$("bilan").innerHTML=`<p class="note">Rien d'enregistré en ${blYear} pour l'instant.</p>`;return}
   const cmp=(a,b,u="")=>p.c.length||p.w.length?`<small>${a>=b?"+":""}${String(Math.round((a-b)*10)/10).replace(".",",")}${u} vs ${blYear-1}</small>`:"";
@@ -2235,7 +2255,7 @@ function renderGo(){const sel=$("go-sp");if(!sel.options.length){sel.innerHTML=[
   $("go-list").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const c=R[+b.dataset.go];closeHome();setSp(sp);follow=false;map.setView([c.lat,c.lon],14);status(`${esc(c.full||c.nom)} : ${c.why.map(w=>esc(w[1])).join(" · ")}`)})}
 $("go-sp").onchange=e=>{e.target.dataset.touched=1;renderGo()};
 // ---- Bandeau « nouvelle version »
-const APPV="cueillette-complet-v24";
+const APPV="cueillette-complet-v25";
 async function checkUpd(){if(!APPV||APPV.startsWith("__")||location.protocol==="file:"||!navigator.onLine)return;
   try{const t=await fetch("sw.js?v="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"");const m=t.match(/SHELL="([^"]+)"/);if(m&&m[1]!==APPV&&LS.get("cu-updskip","")!==m[1]){$("upd").hidden=false;$("upd").dataset.v=m[1]}}catch(e){}}
 $("upd-go").onclick=async()=>{$("upd-go").textContent="…";try{const r=await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}location.reload()};
@@ -2286,6 +2306,8 @@ function renderHome(){homeHello();
   $("hm-save").hidden=!old;if(old)$("hm-save").innerHTML=`<h2>💾 Pensez à sauvegarder</h2><p class="note" style="margin:0 0 8px">${un} coin${un>1?"s":""} pas encore sauvegardé${un>1?"s":""}${st?` (dernière sauvegarde le ${new Date(st).toLocaleDateString("fr-FR")})`:""}. Si l'appli est supprimée du téléphone, tout est perdu.</p><div class="row"><button class="ok" id="hm-save-go">Sauvegarder maintenant</button></div>`;
   if(old)$("hm-save-go").onclick=()=>$("list-save").click();
   renderRecHome();try{renderGo()}catch(e){}
+  const su=suspects();$("hm-sus").hidden=!su.length;if(su.length)$("hm-sus").innerHTML=`<h2>⚠️ ${su.length} coin${su.length>1?"s":""} à vérifier</h2><p class="note" style="margin:0 0 8px">Noté${su.length>1?"s":""} sans position GPS fiable : ${su.length>1?"ils sont peut-être":"il est peut-être"} au mauvais endroit. Touchez un coin puis ✋ Déplacer (ou 🥾 Replacer sur ma balade).</p><div class="hm-last">${su.slice(0,4).map(o=>`<button data-su="${o.i}"><span class="dot" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COL[o.f.sp]||"#777"}"></span><span><b>${esc(SPN[o.f.sp]||"Coin")}</b> · ${new Date(o.f.t).toLocaleString("fr-FR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}<br><small class="note">${esc(o.why)}</small></span></button>`).join("")}</div>`;
+  $("hm-sus").querySelectorAll("[data-su]").forEach(b=>b.onclick=()=>{const i=+b.dataset.su,f=LS.get("cu-finds",[])[i];closeHome();follow=false;map.setView([f.lat,f.lon],16);setTimeout(()=>mineMk[i]&&mineMk[i].openPopup(),300)});
   const rv=revisit();$("hm-revc").hidden=!rv.length;
   $("hm-rev").innerHTML=rv.map(o=>`<button data-k="${o.i}"><span class="dot" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COL[o.f.sp]||"#777"}"></span><span><b>${esc(SPN[o.f.sp]||"Coin")}</b>${qtxt(o.f)?` · ${qtxt(o.f)}`:""}<br><small class="note">${esc(o.w)}</small></span></button>`).join("");
   $("hm-rev").querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=coins[+b.dataset.k];closeHome();follow=false;map.setView([f.lat,f.lon],17)});
