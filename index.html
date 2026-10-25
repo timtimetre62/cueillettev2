@@ -869,6 +869,7 @@ img.legend{max-width:100%;border:1px solid var(--line);border-radius:6px}
 #movebar[hidden]{display:none}#movebar .row{margin-top:8px}
 .rec-ic{position:relative}.rec-ic::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:3px solid #ff3b30;animation:recp 1.6s ease-out infinite}
 @keyframes recp{0%{transform:scale(.7);opacity:1}100%{transform:scale(1.5);opacity:0}}
+.obsd .ob{border-top:1px solid var(--line);padding:6px 0;font-size:.88rem}.obsd img{width:64px;height:64px;object-fit:cover;border-radius:6px;float:right;margin-left:8px}
 .pop img.rec{width:100%;max-height:180px;object-fit:cover;border-radius:8px;margin:4px 0}
 .sos{background:#fff4e5;border:1px solid #f0b46a;border-radius:10px;padding:8px 10px;font-size:.88rem}.sos p{margin:4px 0}.sos a{color:#8a4b00;font-weight:600}.sos a.bad{color:#b03a2e}
 .qk{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qk button{min-height:92px;font:inherit;font-size:1.15rem;font-weight:700;border:2px solid var(--line);border-radius:16px;background:#fff;cursor:pointer}.qk button[data-qq="3"]{background:var(--moss);color:#fff;border-color:var(--moss)}
@@ -1540,7 +1541,7 @@ const obsLayer=L.layerGroup().addTo(map);
 function drawObs(){obsLayer.clearLayers();if(!$("c-obs").checked)return;
   (SP==="morille"?morLayer.addTo(map):map.removeLayer(morLayer));getFinds(SP).forEach(f=>{const recent=f.last>=2015;const size=f.n>=3?24:18;
     L.marker([f.lat,f.lon],{icon:pin(COL[f.sp],size,f.n>1?f.n:"",recent?"50%":"30%"),opacity:recent?1:.8}).addTo(obsLayer)
-     .bindPopup(`<div class="pop"><h3>${esc(f.noms)}</h3><p><b>${f.n} observation${f.n>1?"s":""}</b> · ${esc(f.years.replace(/,/g,", "))}</p><p>Mois : ${esc(f.months)}</p><p class="note">${esc(f.loc)} · source GBIF (atlas mycologique SMNF, iNaturalist…). Précision : quelques mètres à ~100 m.</p><div class="links"><a href="${gmaps(f.lat,f.lon)}" target="_blank" rel="noopener">Itinéraire</a>${aimLink(f.lat,f.lon,f.noms)}</div></div>`)})}
+     .bindPopup(`<div class="pop"><h3>${esc(f.noms)}</h3><p><b>${f.n} observation${f.n>1?"s":""}</b> · ${esc(f.years.replace(/,/g,", "))}</p><p>Mois : ${esc(f.months)}</p><p class="note">${esc(f.loc)} · source GBIF (atlas mycologique SMNF, iNaturalist…).</p><button class="pedit" data-obs="${f.lat},${f.lon}" data-osp="${f.sp}">🔍 Précision exacte et détails</button><div class="obsd"></div><div class="links"><a href="${gmaps(f.lat,f.lon)}" target="_blank" rel="noopener">Itinéraire</a>${aimLink(f.lat,f.lon,f.noms)}</div></div>`)})}
 // ---- Secteurs SMNF + accès + forêts
 const morLayer=L.layerGroup();
 D.morilles.forEach(z=>L.circle([z.lat,z.lon],{radius:Math.min(z.r,2500),color:COL.morille,weight:1,dashArray:"4 4",fillColor:COL.morille,fillOpacity:.1}).addTo(morLayer)
@@ -1628,6 +1629,7 @@ function drawMine(){mine.clearLayers();mineMk.length=0;LS.get("cu-finds",[]).for
 async function fillPhotos(root){for(const d of root.querySelectorAll("[data-ph]")){const ids=d.dataset.ph?d.dataset.ph.split(","):[];d.innerHTML="";for(const id of ids){const u=await photoURL(id);if(!u)continue;const im=document.createElement("img");im.src=u;im.onclick=()=>{$("viewer-img").src=u;$("viewer").hidden=false};d.appendChild(im)}}}
 map.on("popupopen",e=>{const el=e.popup.getElement();fillPhotos(el);el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{map.closePopup();openEdit(+b.dataset.edit)});el.querySelectorAll("[data-share]").forEach(b=>b.onclick=()=>{map.closePopup();openShare(+b.dataset.share)});
   el.querySelectorAll("[data-snap]").forEach(b=>b.onclick=()=>{const l=LS.get("cu-finds",[]),f=l[+b.dataset.snap],q=f&&trailPosAt(f.t);if(!q)return;f.lat=q.lat;f.lon=q.lon;delete f.wx;delete f.nogps;LS.set("cu-finds",l);map.closePopup();drawMine();map.setView([q.lat,q.lon],Math.max(map.getZoom(),16));status(`Coin replacé sur votre trajet, à l'endroit où vous étiez à ${new Date(f.t).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}.`);fillCoinWx()});
+  el.querySelectorAll("[data-obs]").forEach(b=>b.onclick=()=>obsDetails(b,el.querySelector(".obsd")));
   el.querySelectorAll("[data-move]").forEach(b=>b.onclick=()=>{map.closePopup();startMove(+b.dataset.move)});
   el.querySelectorAll("[data-delc]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent="Toucher encore pour confirmer";return}
     const l=LS.get("cu-finds",[]);const [f]=l.splice(+b.dataset.delc,1);LS.set("cu-finds",l);for(const id of (f&&f.photos||[]))try{await delPhoto(id)}catch(e){}
@@ -2255,7 +2257,7 @@ function renderGo(){const sel=$("go-sp");if(!sel.options.length){sel.innerHTML=[
   $("go-list").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const c=R[+b.dataset.go];closeHome();setSp(sp);follow=false;map.setView([c.lat,c.lon],14);status(`${esc(c.full||c.nom)} : ${c.why.map(w=>esc(w[1])).join(" · ")}`)})}
 $("go-sp").onchange=e=>{e.target.dataset.touched=1;renderGo()};
 // ---- Bandeau « nouvelle version »
-const APPV="cueillette-complet-v25";
+const APPV="cueillette-complet-v26";
 async function checkUpd(){if(!APPV||APPV.startsWith("__")||location.protocol==="file:"||!navigator.onLine)return;
   try{const t=await fetch("sw.js?v="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"");const m=t.match(/SHELL="([^"]+)"/);if(m&&m[1]!==APPV&&LS.get("cu-updskip","")!==m[1]){$("upd").hidden=false;$("upd").dataset.v=m[1]}}catch(e){}}
 $("upd-go").onclick=async()=>{$("upd-go").textContent="…";try{const r=await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}location.reload()};
@@ -2289,6 +2291,20 @@ async function backtest(){const out=$("bt-out");const say=h=>out.innerHTML=h;$("
     if(typeof drawThermo==="function")drawThermo()}
   catch(e){say(`<p>La vérification n'a pas pu se faire (réseau ?). Réessayez avec une bonne connexion.</p>`)}finally{$("bt-go").disabled=false}}
 $("bt-go").onclick=backtest;
+
+// ---- Détails d'une observation publiée : précision réelle, date, source, photo (GBIF en direct)
+const obsDLayer=L.layerGroup().addTo(map);
+const OBS_SCI={cepe:["Boletus edulis","Boletus reticulatus","Boletus aestivalis","Boletus aereus","Boletus pinophilus"],girolle:["Cantharellus cibarius","Cantharellus pallens","Cantharellus amethysteus","Cantharellus subpruinosus","Cantharellus ferruginascens"],trompette:["Craterellus cornucopioides"],tube:["Craterellus tubaeformis","Cantharellus tubaeformis"],pied:["Hydnum repandum","Hydnum rufescens"],morille:["Morchella esculenta","Morchella vulgaris","Morchella elata","Morchella"]};
+async function obsDetails(btn,box){const [la,lo]=btn.dataset.obs.split(",").map(Number),sp=btn.dataset.osp;const names=OBS_SCI[sp]||(NEW[sp]&&NEW[sp].sci)||[];
+  if(!navigator.onLine){box.innerHTML=`<p class="note">Il faut du réseau pour charger les détails.</p>`;return}
+  btn.disabled=true;btn.textContent="Chargement…";obsDLayer.clearLayers();const recs=[];
+  try{for(const n of names){const j=await fetch(`https://api.gbif.org/v1/occurrence/search?scientificName=${encodeURIComponent(n)}&decimalLatitude=${(la-.004).toFixed(4)},${(la+.004).toFixed(4)}&decimalLongitude=${(lo-.006).toFixed(4)},${(lo+.006).toFixed(4)}&limit=50`).then(r=>r.json());recs.push(...j.results)}
+    const seenK=new Set();const R=recs.filter(o=>o.decimalLatitude!=null&&!seenK.has(o.key)&&seenK.add(o.key)).map(o=>({lat:o.decimalLatitude,lon:o.decimalLongitude,u:o.coordinateUncertaintyInMeters,d:(o.eventDate||String(o.year||"")).slice(0,10),src:o.datasetName||o.institutionCode||"",url:o.references||`https://www.gbif.org/occurrence/${o.key}`,img:o.media&&o.media[0]&&o.media[0].identifier,nm:o.scientificName||""})).filter(o=>dist(o,{lat:la,lon:lo})<350).sort((a,b)=>(b.d||"").localeCompare(a.d||""));
+    if(!R.length){box.innerHTML=`<p class="note">Aucun détail disponible pour ce point.</p>`;return}
+    R.forEach(o=>{const r=Math.max(5,o.u||0);if(o.u)L.circle([o.lat,o.lon],{radius:r,color:"#d35400",weight:2,fillOpacity:.12,interactive:false}).addTo(obsDLayer);L.circleMarker([o.lat,o.lon],{radius:5,color:"#fff",weight:2,fillColor:"#d35400",fillOpacity:1}).addTo(obsDLayer)});
+    const pr=o=>o.u?(o.u<=15?`<b style="color:#1f7a2e">± ${Math.round(o.u)} m</b> (très précis)`:o.u<=60?`<b>± ${Math.round(o.u)} m</b>`:`<b style="color:#b03a2e">± ${Math.round(o.u)} m</b> (approximatif)`):`<span style="color:#b03a2e">précision non indiquée</span>${/inaturalist/i.test(o.src+o.url)?" (photo GPS, souvent ± 10-30 m)":" (fiche de mycologue : souvent ± 50-200 m)"}`;
+    box.innerHTML=R.slice(0,8).map(o=>`<div class="ob">${o.img?`<a href="${esc(o.url)}" target="_blank" rel="noopener"><img src="${esc(o.img)}" alt=""></a>`:""}<b>${o.d?new Date(o.d+(o.d.length===10?"T12:00:00":"")).toLocaleDateString("fr-FR",{day:"numeric",month:"short",year:"numeric"}):"date ?"}</b> · ${pr(o)}<br><small class="note">${esc(o.src.slice(0,60))} · à ${fmt(dist(o,{lat:la,lon:lo}))} du point</small><br>${aimLink(o.lat,o.lon,"Observation exacte")} · <a href="${esc(o.url)}" target="_blank" rel="noopener">Source</a></div>`).join("")+`<p class="note" style="clear:both">Points orange sur la carte = positions exactes, cercles = marge d'erreur. Le champignon est en général dans le cercle, souvent en troupe sur quelques dizaines de mètres.</p>`;
+    btn.remove()}catch(e){box.innerHTML=`<p class="note">Détails indisponibles pour l'instant (réseau ?).</p>`;btn.disabled=false;btn.textContent="🔍 Précision exacte et détails"}}
 // ---- Écran d'accueil
 function homeHello(){const h=new Date().getHours(),n=LS.get("cu-name","");$("hm-hello").textContent=(h<5||h>=18?"Bonsoir":"Bonjour")+(n?" "+n:"")+" 🍄";$("hm-name").hidden=!!n||LS.get("cu-name-skip",0)===1;
   $("hm-date").textContent=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}
