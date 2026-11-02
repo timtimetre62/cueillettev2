@@ -862,6 +862,24 @@ img.legend{max-width:100%;border:1px solid var(--line);border-radius:6px}
 .tile.big{grid-column:span 3;flex-direction:row;gap:12px;background:var(--moss);color:#fff;min-height:64px;font-size:1.05rem}
 .tile.danger{color:#b03a2e}
 .hm-last{display:flex;flex-direction:column;gap:6px}
+.guide{position:fixed;inset:0;z-index:2200;background:#f6f3ea;display:flex;flex-direction:column}.guide[hidden]{display:none}
+.gd-h{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 12px;background:#2f4a2c;color:#fff}
+.gd-h h2{margin:0;font-size:1.2rem}.gd-h button{font:inherit;font-size:1.2rem;background:#ffffff22;color:#fff;border:0;border-radius:50%;width:40px;height:40px}
+.gd-b{flex:1;overflow:auto;padding:14px 14px calc(env(safe-area-inset-bottom,0px) + 30px);font-size:1rem;line-height:1.5;color:#2a2a2a}
+.gd-b h3{font-size:1.05rem;margin:18px 4px 8px;color:#2f4a2c}
+.gd-hero{background:#fff;border-radius:18px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.08)}.gd-hero p{margin:4px 0}
+.gd-steps{display:grid;gap:10px;margin-top:10px}.gd-step{display:flex;gap:12px;align-items:flex-start;background:#fff;border-radius:16px;padding:12px 14px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.gd-step .n{flex:0 0 34px;height:34px;border-radius:50%;background:#2f4a2c;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+.gd-step b.t{display:block;margin-bottom:2px}.gd-step span{color:#555;font-size:.94rem}
+.guide details{background:#fff;border-radius:16px;margin:8px 0;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden}
+.guide summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:700;display:flex;align-items:center;gap:10px}.guide summary::-webkit-details-marker{display:none}
+.guide summary::after{content:"›";margin-left:auto;font-size:1.4rem;color:#999;transition:transform .2s}.guide details[open] summary::after{transform:rotate(90deg)}
+.guide summary .e{font-size:1.5rem}.guide .dc{padding:0 16px 14px}.guide .dc p{margin:6px 0}
+.guide .it{display:flex;gap:10px;margin:8px 0}.guide .it .k{flex:0 0 30px;font-size:1.3rem;text-align:center}
+.guide .lg{display:grid;grid-template-columns:44px 1fr;gap:8px 10px;align-items:center}.guide .lg i{display:inline-block;width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);margin:auto}
+.guide .warnb{background:#fff1ee;border:1px solid #e08a7a;border-radius:14px;padding:12px 14px;margin:10px 0}
+.guide .tipb{background:#fff8dc;border:1px solid #e0c54a;border-radius:14px;padding:12px 14px;margin:10px 0}
+
 #upd{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:3000;display:flex;align-items:center;gap:8px;background:#ffd23f;color:#222;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,.35);padding:10px 12px;font-weight:600;font-size:.92rem}
 #upd[hidden]{display:none}#upd span{flex:1}#upd button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:8px 10px;cursor:pointer}#upd-go{background:#2f4a2c;color:#fff}#upd-x{background:transparent}
 .go-why{display:block;color:var(--muted);font-size:.8rem;line-height:1.3}.go-sc{margin-left:auto;font-weight:800;font-size:1.1rem;color:#2f4a2c}
@@ -974,6 +992,55 @@ body.gants .lp-bot .row button{min-height:66px}
   <div class="row"><button id="car-del">Oublier la voiture</button><button id="car-close">Fermer</button></div>
 </div>
 
+<div class="guide" id="guide" hidden>
+ <div class="gd-h"><h2>📘 Mode d'emploi</h2><button id="gd-x" aria-label="Fermer">✕</button></div>
+ <div class="gd-b">
+  <div class="gd-hero"><p style="font-size:1.1rem"><b>Bienvenue dans Cueillette 🍄</b></p><p>Une appli pour savoir <b>quand</b> et <b>où</b> chercher vos champignons sur la Côte d'Opale, retrouver vos coins et votre voiture, et apprendre de vos sorties.</p></div>
+  <h3>⚡ Commencer en 3 gestes</h3>
+  <div class="gd-steps">
+   <div class="gd-step"><div class="n">1</div><div><b class="t">Choisissez votre champignon</b><span>Touchez le nom en haut de l'écran (ex. « Trompettes »). La carte affiche alors les bons endroits pour lui.</span></div></div>
+   <div class="gd-step"><div class="n">2</div><div><b class="t">Regardez si c'est le moment</b><span>Le <b>thermomètre</b> à droite donne une note sur 100. Au-dessus de 45 : allez-y ! L'accueil 🏠 vous dit aussi <b>🧭 où aller</b>.</span></div></div>
+   <div class="gd-step"><div class="n">3</div><div><b class="t">En forêt, notez vos trouvailles</b><span>Touchez <b>🎯</b> pour le GPS, puis <b>＋ Noter ici</b> devant vos champignons. Le coin est enregistré, avec la date et la météo.</span></div></div>
+  </div>
+
+  <h3>📖 Tout le reste, rubrique par rubrique</h3>
+  <details><summary><span class="e">🏠</span>Avant de partir</summary><div class="dc">
+   <div class="it"><span class="k">🌡️</span><p><b>Le thermomètre</b> combine la saison réelle de chaque espèce dans la région et l'humidité du sol. Touchez-le pour voir les 7 prochains jours et le meilleur jour.</p></div>
+   <div class="it"><span class="k">🧭</span><p><b>Où aller ?</b> (sur l'accueil) classe les forêts pour l'espèce choisie et dit pourquoi.</p></div>
+   <div class="it"><span class="k">🦌</span><p><b>Jours de chasse</b> : vérifiez avant de partir (tuile sur l'accueil). Respectez toujours les panneaux sur place.</p></div>
+   <div class="it"><span class="k">🗺️</span><p><b>Hors réseau ?</b> Dans 🗂️ › Forêts, touchez « Hors ligne » pour télécharger la carte d'une forêt à l'avance.</p></div>
+  </div></details>
+  <details><summary><span class="e">🌲</span>En forêt</summary><div class="dc">
+   <div class="it"><span class="k">🎯</span><p><b>Votre position</b> : touchez une fois pour activer le GPS. Retouchez pour recentrer.</p></div>
+   <div class="it"><span class="k">🚗</span><p><b>Ma voiture</b> : « Garer ici » en arrivant, puis « Me guider » pour revenir. Une flèche montre la direction.</p></div>
+   <div class="it"><span class="k">＋</span><p><b>Noter ici</b> : l'appli attend un GPS précis avant d'enregistrer. Ajoutez la quantité, une photo, l'arbre… Notez aussi quand vous ne trouvez <b>rien</b> : ça aide l'appli à apprendre.</p></div>
+   <div class="it"><span class="k">🔦</span><p><b>La loupe</b> entoure les taches noires (trompettes) ou les petites touffes à pied jaune (chanterelles en tube) dans la caméra. C'est une aide pour l'œil, pas une identification.</p></div>
+   <div class="it"><span class="k">🧤</span><p><b>Mode gants</b> (en bas de l'accueil) : gros boutons et « Noter » en un seul geste.</p></div>
+   <div class="it"><span class="k">🆘</span><p><b>Je suis perdu</b> (accueil) : votre position par SMS, retour à la voiture, appel du 112.</p></div>
+  </div></details>
+  <details><summary><span class="e">⭐</span>Après la sortie</summary><div class="dc">
+   <div class="it"><span class="k">⭐</span><p><b>Mes coins</b> : la liste de vos trouvailles. Touchez un coin sur la carte pour le <b>modifier</b>, le <b>déplacer</b> (✋) ou le <b>supprimer</b>.</p></div>
+   <div class="it"><span class="k">💾</span><p><b>Sauvegardez</b> régulièrement (★ Mes coins › Sauvegarder) : si l'appli est supprimée du téléphone, tout est perdu sans sauvegarde.</p></div>
+   <div class="it"><span class="k">📈</span><p><b>Ce que j'apprends</b> : combien de jours après la pluie vous trouvez chaque espèce, avec quel sol, sous quels arbres.</p></div>
+   <div class="it"><span class="k">🥾</span><p><b>Mes balades</b> et <b>📊 Bilan</b> : vos trajets, kilomètres, paniers et meilleure sortie de l'année.</p></div>
+   <div class="it"><span class="k">💬</span><p><b>Envoyer à Claude</b> : depuis un coin ou un relevé 📋, envoyez photos et infos dans l'appli Claude pour un avis.</p></div>
+  </div></details>
+  <details><summary><span class="e">🗺️</span>Comprendre la carte</summary><div class="dc"><div class="lg">
+   <i style="background:#777;border-radius:50%"></i><span><b>Petit rond coloré</b> : observation publiée (mycologues, iNaturalist). Touchez-le, puis « 🔍 Précision » pour la position exacte.</span>
+   <span style="text-align:center;font-size:1.3rem">★</span><span><b>Étoile</b> : un de <b>vos</b> coins.</span>
+   <i style="background:#6b3fa0;border-radius:7px"></i><span class="gfull"><b>Carré violet « SMNF »</b> : sortie récente des mycologues, sur la parcelle notée. Contour jaune = votre espèce y a été trouvée.</span>
+   <i style="background:#2c2632;border:3px solid #ff3b30"></i><span class="gfull"><b>Cercle rouge « NEW »</b> : pousse publiée ces 30 derniers jours. Il clignote si elle a moins d'une semaine.</span>
+   <i style="background:#7fb24a;opacity:.6;border-radius:4px"></i><span><b>Zones colorées</b> : les endroits favorables à l'espèce choisie (arbres, sol).</span>
+   <span style="text-align:center;font-size:1.3rem">🗂️</span><span><b>Couches</b> : fond de carte, parcelles ONF, essences, forêts anciennes, carte géologique…</span>
+  </div></div></details>
+  <details><summary><span class="e">📖</span>Reconnaître un champignon</summary><div class="dc">
+   <p><b>📖 Atlas</b> : une fiche par espèce (où, quand, comment la reconnaître), des planches de comparaison et une clé d'identification par questions simples.</p>
+   <p>Quand vous notez un coin, un encadré <b>⚠️ Sosies</b> rappelle quoi vérifier.</p>
+  </div></details>
+  <div class="warnb"><b>⚠️ Sécurité avant tout</b><br>Ni l'appli, ni une photo, ni Claude ne remplacent une identification en main. <b>Au moindre doute, ne mangez pas</b> et montrez la récolte à un pharmacien ou à la SMNF. Respectez la chasse, les propriétés privées et les quantités raisonnables.</div>
+  <div class="tipb"><b>💡 Bon à savoir</b><br>Quand un bandeau jaune « Nouvelle version » apparaît, touchez « Mettre à jour ». Vos coins sont conservés.</div>
+ </div>
+</div>
 <div class="sheet" id="s-tips" hidden>
   <h2>Bienvenue 🍄</h2>
   <ul class="tips">
@@ -984,7 +1051,7 @@ body.gants .lp-bot .row button{min-height:66px}
     <li><b>＋ Noter ici</b> : enregistrez vos trouvailles avec photo et pH.</li>
     <li><b>📖 Atlas</b> : fiches, planches de comparaison et clé d'identification.</li>
   </ul>
-  <div class="row"><button id="tips-ok" class="ok">C'est parti</button></div>
+  <div class="row"><button id="tips-guide">📘 Mode d'emploi</button><button id="tips-ok" class="ok">C'est parti</button></div>
 </div>
 
 <div class="sheet" id="s-sp" hidden>
@@ -1128,7 +1195,7 @@ body.gants .lp-bot .row button{min-height:66px}
    <button class="tile" id="t-loupe"><span class="ti">🔦</span>Loupe<small>trompettes, tubes</small></button>
    <button class="tile" id="t-walks"><span class="ti">🥾</span>Mes balades</button>
    <button class="tile" id="t-bilan"><span class="ti">📊</span>Bilan<small>de saison</small></button>
-   <button class="tile" id="t-help"><span class="ti">💡</span>Mode d'emploi</button>
+   <button class="tile" id="t-help"><span class="ti">📘</span>Mode d'emploi</button>
   </div>
   <div class="hcard hm-save" id="hm-sus" hidden style="border-color:#e08a7a;background:#fff1ee"></div>
   <div class="hcard hm-save" id="hm-save" hidden></div>
@@ -2271,7 +2338,7 @@ function renderGo(){const sel=$("go-sp");if(!sel.options.length){sel.innerHTML=[
   $("go-list").querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{const c=R[+b.dataset.go];closeHome();setSp(sp);follow=false;map.setView([c.lat,c.lon],14);status(`${esc(c.full||c.nom)} : ${c.why.map(w=>esc(w[1])).join(" · ")}`)})}
 $("go-sp").onchange=e=>{e.target.dataset.touched=1;renderGo()};
 // ---- Bandeau « nouvelle version »
-const APPV="cueillette-complet-v27";
+const APPV="cueillette-complet-v28";
 async function checkUpd(){if(!APPV||APPV.startsWith("__")||location.protocol==="file:"||!navigator.onLine)return;
   try{const t=await fetch("sw.js?v="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"");const m=t.match(/SHELL="([^"]+)"/);if(m&&m[1]!==APPV&&LS.get("cu-updskip","")!==m[1]){$("upd").hidden=false;$("upd").dataset.v=m[1]}}catch(e){}}
 $("upd-go").onclick=async()=>{$("upd-go").textContent="…";try{const r=await navigator.serviceWorker.getRegistration();if(r)await r.update()}catch(e){}location.reload()};
@@ -2363,7 +2430,8 @@ $("t-thermo").onclick=()=>{closeHome();openMeteo()};
 $("t-releve").onclick=()=>{closeHome();openRel()};
 $("t-loupe").onclick=openLoupe;
 $("t-walks").onclick=openWalks;$("t-bilan").onclick=openBilan;$("t-lost").onclick=openLost;
-$("t-help").onclick=()=>{$("s-tips").hidden=false};
+function openGuide(){closeHome();$("s-tips").hidden=true;if(!FULL)document.querySelectorAll("#guide .gfull").forEach(e=>{e.hidden=true;if(e.previousElementSibling)e.previousElementSibling.hidden=true});$("guide").hidden=false;$("guide").querySelector(".gd-b").scrollTop=0}
+$("t-help").onclick=openGuide;$("gd-x").onclick=()=>$("guide").hidden=true;$("tips-guide").onclick=()=>{LS.set("cu-tips8",1);openGuide()};
 $("hm-learn-more").onclick=()=>{closeHome();renderLearn();$("s-learn").hidden=false};
 $("hm-more").onclick=()=>{closeHome();renderToday();$("s-today").hidden=false};
 $("hm-start").onchange=e=>LS.set("cu-home",e.target.checked?1:0);
